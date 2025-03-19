@@ -1,44 +1,47 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useRef, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Message } from "@/components/message"
-import { Send } from "lucide-react"
+import { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Message } from "@/lib/types";
+import { Send } from "lucide-react";
 
 interface ChatProps {
-  messages: any[]
-  onUpdateMessages: (messages: any[]) => void
-  isLocalModel: boolean
+  messages: Message[];
+  onUpdateMessages: (messages: Message[]) => void;
+  isLocalModel: boolean;
 }
 
 export function Chat({ messages, onUpdateMessages, isLocalModel }: ChatProps) {
-  const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom when messages change
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+    scrollToBottom();
+  }, [messages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
 
-    if (!input.trim()) return
+    const userMessage: Message = {
+      role: "user",
+      content: input.trim(),
+    };
 
-    // Add user message
-    const userMessage = { role: "user", content: input }
-    const updatedMessages = [...messages, userMessage]
-    onUpdateMessages(updatedMessages)
-
-    setInput("")
-    setIsLoading(true)
+    const updatedMessages = [...messages, userMessage];
+    onUpdateMessages(updatedMessages);
+    setInput("");
+    setIsLoading(true);
 
     try {
-      // Call API to get response
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -48,27 +51,30 @@ export function Chat({ messages, onUpdateMessages, isLocalModel }: ChatProps) {
           messages: updatedMessages,
           isLocalModel,
         }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error("Failed to get response")
+        throw new Error("Failed to send message");
       }
 
-      const data = await response.json()
+      const data = await response.json();
+      const assistantMessage: Message = {
+        role: "assistant",
+        content: data.content,
+      };
 
-      // Add assistant message
-      onUpdateMessages([...updatedMessages, data.message])
+      onUpdateMessages([...updatedMessages, assistantMessage]);
     } catch (error) {
-      console.error("Error:", error)
-      // Add error message
-      onUpdateMessages([
-        ...updatedMessages,
-        { role: "assistant", content: "Sorry, there was an error processing your request." },
-      ])
+      console.error("Error sending message:", error);
+      const errorMessage: Message = {
+        role: "assistant",
+        content: "Sorry, there was an error processing your request.",
+      };
+      onUpdateMessages([...updatedMessages, errorMessage]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -76,14 +82,41 @@ export function Chat({ messages, onUpdateMessages, isLocalModel }: ChatProps) {
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-center text-gray-500 dark:text-gray-400">
             <div>
-              <h2 className="text-2xl font-semibold mb-2">Welcome to Code Review Assistant</h2>
+              <h2 className="text-2xl font-semibold mb-2">
+                Welcome to Code Review Assistant
+              </h2>
               <p className="max-w-md">
-                Paste your code and ask for a review. The assistant will analyze your code and provide feedback.
+                Paste your code and ask for a review. The assistant will analyze
+                your code and provide feedback.
               </p>
             </div>
           </div>
         ) : (
-          messages.map((message, index) => <Message key={index} message={message} />)
+          messages.map((message, index) => (
+            <div
+              key={index}
+              className={`flex ${
+                message.role === "user" ? "justify-end" : "justify-start"
+              }`}
+            >
+              <div
+                className={`max-w-[80%] rounded-lg p-4 ${
+                  message.role === "user"
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-200 dark:bg-gray-800"
+                }`}
+              >
+                {message.content}
+              </div>
+            </div>
+          ))
+        )}
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="bg-gray-200 dark:bg-gray-800 rounded-lg p-4">
+              Thinking...
+            </div>
+          </div>
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -106,6 +139,5 @@ export function Chat({ messages, onUpdateMessages, isLocalModel }: ChatProps) {
         </form>
       </div>
     </div>
-  )
+  );
 }
-
