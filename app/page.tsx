@@ -3,10 +3,25 @@
 import { useState, useEffect } from "react";
 import { Chat } from "@/components/chat";
 import { ModelSelector } from "@/components/model-selector";
-import { ChatHistory } from "@/components/chat-history";
+import { ChatHistoryArea } from "@/components/chat-history-area";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 import { Message, ChatHistory as ChatHistoryType } from "@/lib/types";
+
+// import { redirect } from 'next/navigation'
+
+// import { createClient } from '@/utils/supabase/server'
+
+// export default async function PrivatePage() {
+//   const supabase = await createClient()
+
+//   const { data, error } = await supabase.auth.getUser()
+//   if (error || !data?.user) {
+//     redirect('/login')
+//   }
+
+//   return <p>Hello {data.user.email}</p>
+// }
 
 export default function Home() {
   const [isLocalModel, setIsLocalModel] = useState<boolean>(false);
@@ -84,7 +99,7 @@ export default function Home() {
           >
             New Code Review
           </Button>
-          <ChatHistory
+          <ChatHistoryArea
             histories={chatHistories}
             currentChatId={currentChatId}
             onSelectChat={setCurrentChatId}

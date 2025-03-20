@@ -13,7 +13,7 @@ interface ChatHistoryProps {
   onSelectChat: (id: string) => void;
 }
 
-export function ChatHistory({
+export function ChatHistoryArea({
   histories,
   currentChatId,
   onSelectChat,
