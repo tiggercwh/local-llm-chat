@@ -56,6 +56,21 @@ export function Chat({ messages, onUpdateMessages, isLocalModel }: ChatProps) {
       if (!response.ok) {
         throw new Error("Failed to send message");
       }
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) return;
+
+      let result = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        result += chunk;
+        console.log(chunk); // Word-by-word updates
+      }
+      console.log(result);
 
       const data = await response.json();
       const assistantMessage: Message = {
