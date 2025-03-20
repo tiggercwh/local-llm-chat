@@ -1,12 +1,12 @@
 "use client";
 
 import type React from "react";
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Message } from "@/lib/types";
 import { Send } from "lucide-react";
+import { useLocalLLM } from "@/hooks/useLocalLLM";
 
 interface ChatProps {
   messages: Message[];
@@ -16,83 +16,87 @@ interface ChatProps {
 
 export function Chat({ messages, onUpdateMessages, isLocalModel }: ChatProps) {
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const { generateResponse, isLoading } = useLocalLLM(); // Use local LLM hook
 
+  // Scroll to bottom when messages update
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      role: "user",
-      content: input.trim(),
-    };
-
+    const userMessage: Message = { role: "user", content: input.trim() };
     const updatedMessages = [...messages, userMessage];
     onUpdateMessages(updatedMessages);
     setInput("");
-    setIsLoading(true);
 
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+    if (isLocalModel) {
+      // Use Local LLM
+      generateResponse(
+        updatedMessages,
+        (updatedContent) => {
+          // Streaming updates
+          const assistantMessage: Message = {
+            role: "assistant",
+            content: updatedContent,
+          };
+          onUpdateMessages([...updatedMessages, assistantMessage]);
         },
-        body: JSON.stringify({
-          messages: updatedMessages,
-          isLocalModel,
-        }),
-      });
+        (finalMessage) => {
+          // Final completion
+          const assistantMessage: Message = {
+            role: "assistant",
+            content: finalMessage,
+          };
+          onUpdateMessages([...updatedMessages, assistantMessage]);
+        }
+      );
+    } else {
+      // Call OpenAI API
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: updatedMessages }),
+        });
 
-      if (!response.ok) {
-        throw new Error("Failed to send message");
+        if (!response.ok) throw new Error("Failed to send message");
+
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        if (!reader) return;
+
+        let result = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          result += chunk;
+        }
+
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: result,
+        };
+        onUpdateMessages([...updatedMessages, assistantMessage]);
+      } catch (error) {
+        console.error("Error sending message:", error);
+        const errorMessage: Message = {
+          role: "assistant",
+          content: "Sorry, there was an error.",
+        };
+        onUpdateMessages([...updatedMessages, errorMessage]);
       }
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) return;
-
-      let result = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        result += chunk;
-        console.log(chunk); // Word-by-word updates
-      }
-      console.log(result);
-
-      const data = await response.json();
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: data.content,
-      };
-
-      onUpdateMessages([...updatedMessages, assistantMessage]);
-    } catch (error) {
-      console.error("Error sending message:", error);
-      const errorMessage: Message = {
-        role: "assistant",
-        content: "Sorry, there was an error processing your request.",
-      };
-      onUpdateMessages([...updatedMessages, errorMessage]);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-center text-gray-500 dark:text-gray-400">
@@ -136,6 +140,7 @@ export function Chat({ messages, onUpdateMessages, isLocalModel }: ChatProps) {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Input Area */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
         <form onSubmit={handleSubmit} className="flex flex-col space-y-2">
           <Textarea
