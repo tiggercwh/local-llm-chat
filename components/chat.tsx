@@ -7,96 +7,143 @@ import { Textarea } from "@/components/ui/textarea";
 import { Message } from "@/lib/types";
 import { Send } from "lucide-react";
 import { useLocalLLM } from "@/hooks/useLocalLLM";
+import { useRouter } from "next/navigation";
 
 interface ChatProps {
   messages: Message[];
   onUpdateMessages: (messages: Message[]) => void;
   isLocalModel: boolean;
+  chatId?: string;
+  initialPrompt?: string | null;
 }
 
-export function Chat({ messages, onUpdateMessages, isLocalModel }: ChatProps) {
+export function Chat({
+  messages,
+  isLocalModel,
+  chatId,
+  initialPrompt,
+}: ChatProps) {
+  const router = useRouter();
   const [input, setInput] = useState("");
+  const [streamingContent, setStreamingContent] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { generateResponse, isLoading } = useLocalLLM(); // Use local LLM hook
+  const { generateResponse, isLoading: isLocalLoading } = useLocalLLM();
+  const isLoading = isLocalModel ? isLocalLoading : isStreaming;
 
-  // Scroll to bottom when messages update
+  const handleSubmit = useCallback(
+    async (prompt: string) => {
+      if (!prompt.trim() || isStreaming) return;
+
+      const userMessage: Message = {
+        role: "user",
+        content: prompt.trim(),
+      };
+
+      const updatedMessages = [...messages, userMessage];
+      onUpdateMessages(updatedMessages);
+      setInput("");
+      setIsStreaming(true);
+      setStreamingContent("");
+
+      try {
+        if (isLocalModel) {
+          generateResponse(
+            updatedMessages,
+            (chunk) => {
+              setStreamingContent(chunk);
+            },
+            (finalContent) => {
+              const assistantMessage: Message = {
+                role: "assistant",
+                content: finalContent,
+              };
+              onUpdateMessages([...updatedMessages, assistantMessage]);
+              setStreamingContent("");
+              if (!chatId) {
+                router.push(`/chat/${Date.now()}`);
+              }
+            }
+          );
+        } else {
+          const response = await fetch("/api/mock-stream", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              messages: updatedMessages,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch response");
+          }
+
+          const reader = response.body?.getReader();
+          if (!reader) {
+            throw new Error("No reader available");
+          }
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = new TextDecoder().decode(value);
+            const lines = chunk.split("\n");
+
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const data = line.slice(6);
+                if (data === "[DONE]") {
+                  const assistantMessage: Message = {
+                    role: "assistant",
+                    content: streamingContent,
+                  };
+                  onUpdateMessages([...updatedMessages, assistantMessage]);
+                  setIsStreaming(false);
+                  setStreamingContent("");
+                  if (!chatId) {
+                    router.push(`/chat/${Date.now()}`);
+                  }
+                } else {
+                  try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.choices?.[0]?.delta?.content) {
+                      setStreamingContent(
+                        (prev) => prev + parsed.choices[0].delta.content
+                      );
+                    }
+                  } catch (e) {
+                    console.error("Error parsing chunk:", e);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        setIsStreaming(false);
+        setStreamingContent("");
+      }
+    },
+    [isLocalModel, chatId, router, onUpdateMessages]
+  );
+  // Handle initial prompt on mount
+  useEffect(() => {
+    if (messages.length === 1) {
+      handleSubmit(messages[0].content);
+    }
+  }, [handleSubmit, messages]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
-
-    const userMessage: Message = { role: "user", content: input.trim() };
-    const updatedMessages = [...messages, userMessage];
-    onUpdateMessages(updatedMessages);
-    setInput("");
-
-    if (isLocalModel) {
-      // Use Local LLM
-      generateResponse(
-        updatedMessages,
-        (updatedContent) => {
-          // Streaming updates
-          const assistantMessage: Message = {
-            role: "assistant",
-            content: updatedContent,
-          };
-          onUpdateMessages([...updatedMessages, assistantMessage]);
-        },
-        (finalMessage) => {
-          // Final completion
-          const assistantMessage: Message = {
-            role: "assistant",
-            content: finalMessage,
-          };
-          onUpdateMessages([...updatedMessages, assistantMessage]);
-        }
-      );
-    } else {
-      // Call OpenAI API
-      try {
-        const response = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: updatedMessages }),
-        });
-
-        if (!response.ok) throw new Error("Failed to send message");
-
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        if (!reader) return;
-
-        let result = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          result += chunk;
-        }
-
-        const assistantMessage: Message = {
-          role: "assistant",
-          content: result,
-        };
-        onUpdateMessages([...updatedMessages, assistantMessage]);
-      } catch (error) {
-        console.error("Error sending message:", error);
-        const errorMessage: Message = {
-          role: "assistant",
-          content: "Sorry, there was an error.",
-        };
-        onUpdateMessages([...updatedMessages, errorMessage]);
-      }
-    }
-  };
+  }, [messages, streamingContent]);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-center text-gray-500 dark:text-gray-400">
@@ -111,38 +158,46 @@ export function Chat({ messages, onUpdateMessages, isLocalModel }: ChatProps) {
             </div>
           </div>
         ) : (
-          messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${
-                message.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
+          <>
+            {messages.map((message, index) => (
               <div
-                className={`max-w-[80%] rounded-lg p-4 ${
-                  message.role === "user"
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-200 dark:bg-gray-800"
+                key={index}
+                className={`flex ${
+                  message.role === "user" ? "justify-end" : "justify-start"
                 }`}
               >
-                {message.content}
+                <div
+                  className={`max-w-[80%] whitespace-pre-wrap rounded-lg p-4 ${
+                    message.role === "user"
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-200 dark:bg-gray-800"
+                  }`}
+                >
+                  {message.content}
+                </div>
               </div>
-            </div>
-          ))
-        )}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-gray-200 dark:bg-gray-800 rounded-lg p-4">
-              Thinking...
-            </div>
-          </div>
+            ))}
+            {streamingContent && (
+              <div className="flex justify-start">
+                <div className="bg-gray-200 dark:bg-gray-800 rounded-lg p-4 whitespace-pre-wrap">
+                  {streamingContent}
+                </div>
+              </div>
+            )}
+          </>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
-        <form onSubmit={handleSubmit} className="flex flex-col space-y-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!input.trim() || isLoading) return;
+            handleSubmit(input.trim());
+          }}
+          className="flex flex-col space-y-2"
+        >
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}

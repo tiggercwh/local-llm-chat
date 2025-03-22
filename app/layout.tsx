@@ -3,13 +3,13 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ChatProvider } from "./contexts/ChatContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Code Review Assistant",
-  description:
-    "AI-powered code review assistant with support for local and API models",
+  title: "Local LLM Chat",
+  description: "Chat with local LLM models",
 };
 
 export default function RootLayout({
@@ -26,7 +26,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <ChatProvider>{children}</ChatProvider>
         </ThemeProvider>
       </body>
     </html>
