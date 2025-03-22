@@ -7,10 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Message } from "@/lib/types";
 import { Send } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useChat } from "@/app/contexts/ChatContext";
+import { v4 as uuidv4 } from "uuid";
 
 export function HomeChat() {
   const router = useRouter();
   const [input, setInput] = useState("");
+  const { addChatHistory } = useChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = async (prompt: string) => {
@@ -22,6 +25,11 @@ export function HomeChat() {
 
     // Store the initial message in localStorage
     localStorage.setItem("initialMessage", JSON.stringify(userMessage));
+    addChatHistory({
+      id: uuidv4(),
+      title: "Code Review",
+      createdAt: Date.now(),
+    });
 
     // Redirect to new chat page
     router.push(`/chat/${Date.now()}`);

@@ -7,7 +7,7 @@ export type Message = {
 export type ChatHistory = {
   id: string;
   title: string;
-  createdAt: string;
+  createdAt: number;
 };
 
 export type ChatResponse = {
