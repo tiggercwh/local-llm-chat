@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Message } from "@/lib/types";
@@ -11,17 +11,16 @@ import { useRouter } from "next/navigation";
 
 interface ChatProps {
   messages: Message[];
-  onUpdateMessages: (messages: Message[]) => void;
+  setMessages: (messages: Message[]) => void;
   isLocalModel: boolean;
   chatId?: string;
-  initialPrompt?: string | null;
 }
 
 export function Chat({
-  messages,
   isLocalModel,
   chatId,
-  initialPrompt,
+  setMessages,
+  messages,
 }: ChatProps) {
   const router = useRouter();
   const [input, setInput] = useState("");
@@ -35,14 +34,14 @@ export function Chat({
   const handleSubmit = useCallback(
     async (prompt: string) => {
       if (!prompt.trim() || isStreaming) return;
-
+      console.log("prompt", prompt);
       const userMessage: Message = {
         role: "user",
         content: prompt.trim(),
       };
 
       const updatedMessages = [...messages, userMessage];
-      onUpdateMessages(updatedMessages);
+      setMessages(updatedMessages);
       setInput("");
       setIsStreaming(true);
       setStreamingContent("");
@@ -59,7 +58,7 @@ export function Chat({
                 role: "assistant",
                 content: finalContent,
               };
-              onUpdateMessages([...updatedMessages, assistantMessage]);
+              setMessages([...updatedMessages, assistantMessage]);
               setStreamingContent("");
               if (!chatId) {
                 router.push(`/chat/${Date.now()}`);
@@ -67,60 +66,44 @@ export function Chat({
             }
           );
         } else {
+          console.log("calling api");
           const response = await fetch("/api/mock-stream", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              messages: updatedMessages,
-            }),
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: updatedMessages }),
           });
 
-          if (!response.ok) {
-            throw new Error("Failed to fetch response");
-          }
+          if (!response.ok) throw new Error("Failed to fetch response");
 
           const reader = response.body?.getReader();
-          if (!reader) {
-            throw new Error("No reader available");
-          }
+          if (!reader) throw new Error("No reader available");
 
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+          const decoder = new TextDecoder();
+          let accumulatedContent = "";
 
-            const chunk = new TextDecoder().decode(value);
-            const lines = chunk.split("\n");
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
 
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const data = line.slice(6);
-                if (data === "[DONE]") {
-                  const assistantMessage: Message = {
-                    role: "assistant",
-                    content: streamingContent,
-                  };
-                  onUpdateMessages([...updatedMessages, assistantMessage]);
-                  setIsStreaming(false);
-                  setStreamingContent("");
-                  if (!chatId) {
-                    router.push(`/chat/${Date.now()}`);
-                  }
-                } else {
-                  try {
-                    const parsed = JSON.parse(data);
-                    if (parsed.choices?.[0]?.delta?.content) {
-                      setStreamingContent(
-                        (prev) => prev + parsed.choices[0].delta.content
-                      );
-                    }
-                  } catch (e) {
-                    console.error("Error parsing chunk:", e);
-                  }
-                }
-              }
+              const chunk = decoder.decode(value);
+              accumulatedContent += chunk;
+              setStreamingContent(accumulatedContent);
             }
+
+            // When streaming is complete, add the final message
+            const assistantMessage: Message = {
+              role: "assistant",
+              content: accumulatedContent,
+            };
+            setMessages([...updatedMessages, assistantMessage]);
+            setIsStreaming(false);
+            setStreamingContent("");
+            if (!chatId) {
+              router.push(`/chat/${Date.now()}`);
+            }
+          } finally {
+            reader.releaseLock();
           }
         }
       } catch (error) {
@@ -129,14 +112,19 @@ export function Chat({
         setStreamingContent("");
       }
     },
-    [isLocalModel, chatId, router, onUpdateMessages]
+    [isLocalModel, chatId, router, messages, setMessages]
   );
+
   // Handle initial prompt on mount
   useEffect(() => {
-    if (messages.length === 1) {
-      handleSubmit(messages[0].content);
+    const initialMessage = localStorage.getItem("initialMessage");
+    console.log("initialMessage", initialMessage);
+    if (initialMessage) {
+      const message = JSON.parse(initialMessage);
+      handleSubmit(message.content);
+      localStorage.removeItem("initialMessage");
     }
-  }, [handleSubmit, messages]);
+  }, [handleSubmit]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

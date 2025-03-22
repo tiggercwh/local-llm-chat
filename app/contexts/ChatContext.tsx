@@ -7,46 +7,46 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-// import { ChatHistory as ChatHistoryType } from "@/lib/types";
+import { ChatHistory as ChatHistoryType } from "@/lib/types";
 
 interface ChatContextType {
-  chatHistoryIDs: string[];
-  addChatHistoryID: (id: string) => void;
-  removeChatHistoryID: (id: string) => void;
+  chatHistories: ChatHistoryType[];
+  addChatHistory: (chatHistory: ChatHistoryType) => void;
+  removeChatHistory: (id: string) => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export function ChatProvider({ children }: { children: ReactNode }) {
-  const [chatHistoryIDs, setChatHistoryIDs] = useState<string[]>([]);
+  const [chatHistories, setChatHistories] = useState<ChatHistoryType[]>([]);
 
   // Load chat histories from localStorage on initial render
   useEffect(() => {
     const savedHistories = localStorage.getItem("localllm_chatids");
     if (savedHistories) {
-      setChatHistoryIDs(JSON.parse(savedHistories));
+      setChatHistories(JSON.parse(savedHistories));
     }
   }, []);
 
-  const addChatHistoryID = (id: string) => {
-    setChatHistoryIDs([...chatHistoryIDs, id]);
+  const addChatHistory = (chatHistory: ChatHistoryType) => {
+    setChatHistories([...chatHistories, chatHistory]);
     localStorage.setItem(
       "localllm_chatids",
-      JSON.stringify([...chatHistoryIDs, id])
+      JSON.stringify([...chatHistories, chatHistory])
     );
   };
 
-  const removeChatHistoryID = (id: string) => {
-    setChatHistoryIDs(chatHistoryIDs.filter((chatId) => chatId !== id));
-    localStorage.setItem(
-      "localllm_chatids",
-      JSON.stringify(chatHistoryIDs.filter((chatId) => chatId !== id))
+  const removeChatHistory = (id: string) => {
+    const filterdHistories = chatHistories.filter(
+      (history) => history.id !== id
     );
+    setChatHistories(filterdHistories);
+    localStorage.setItem("localllm_chatids", JSON.stringify(filterdHistories));
   };
 
   return (
     <ChatContext.Provider
-      value={{ chatHistoryIDs, addChatHistoryID, removeChatHistoryID }}
+      value={{ chatHistories, addChatHistory, removeChatHistory }}
     >
       {children}
     </ChatContext.Provider>

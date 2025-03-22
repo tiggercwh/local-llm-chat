@@ -1,68 +1,56 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { use } from "react";
 import { Chat } from "@/components/chat";
 import { Layout } from "@/components/layout";
-import { Message, ChatHistory } from "@/lib/types";
-import { useChat } from "@/app/contexts/ChatContext";
+import { Message } from "@/lib/types";
 
-export default function ChatPage({ params }: { params: { id: string } }) {
-  const router = useRouter();
-  const { chatHistories, setChatHistories } = useChat();
+export default function ChatPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  const [messages, setMessages] = useState<Message[]>([]);
 
-  const handleUpdateMessages = (messages: Message[]) => {
-    if (messages.length === 0) return;
-
-    // Check if this is a new chat
-    const existingChat = chatHistories.find((chat) => chat.id === params.id);
-    if (!existingChat) {
-      // Create a new chat
-      const newChat = {
-        id: params.id,
-        title:
-          messages[0].content.length > 30
-            ? messages[0].content.substring(0, 30) + "..."
-            : messages[0].content,
-        messages,
-        createdAt: new Date().toISOString(),
-      };
-
-      // Update localStorage with the new chat
-      const updatedHistories = [newChat, ...chatHistories];
-      setChatHistories(updatedHistories);
-      localStorage.setItem("chatHistories", JSON.stringify(updatedHistories));
+  // Load messages from localStorage on mount
+  useEffect(() => {
+    const storedMessages = localStorage.getItem(`messages_${id}`);
+    if (storedMessages) {
+      setMessages(JSON.parse(storedMessages));
     } else {
-      // Update existing chat
-      const updatedHistories = chatHistories.map((chat: ChatHistory) =>
-        chat.id === params.id
-          ? {
-              ...chat,
-              messages,
-              title:
-                messages.length > 0 && messages[0].content.length > 30
-                  ? messages[0].content.substring(0, 30) + "..."
-                  : chat.title,
-            }
-          : chat
-      );
-      setChatHistories(updatedHistories);
+      // Check for initial message from home page
+      const initialMessage = localStorage.getItem("initialMessage");
+      if (initialMessage) {
+        const message = JSON.parse(initialMessage);
+        setMessages([message]);
+        // Store the message with the chat-specific key
+        localStorage.setItem(`messages_${id}`, JSON.stringify([message]));
+        // Clear the initial message from localStorage
+        localStorage.removeItem("initialMessage");
+      }
     }
-  };
+  }, [id]);
 
-  const currentChat = chatHistories.find((chat) => chat.id === params.id) || {
-    messages: [],
+  // Update localStorage whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(`messages_${id}`, JSON.stringify(messages));
+    }
+  }, [messages, id]);
+
+  const handleSetMessages = (newMessages: Message[]) => {
+    setMessages(newMessages);
   };
 
   return (
-    <Layout
-      currentChatId={params.id}
-      onSelectChat={(id) => router.push(`/chat/${id}`)}
-    >
+    <Layout>
       <Chat
-        messages={currentChat.messages}
-        onUpdateMessages={handleUpdateMessages}
+        messages={messages}
+        setMessages={handleSetMessages}
         isLocalModel={false}
-        chatId={params.id}
+        chatId={id}
       />
     </Layout>
   );
