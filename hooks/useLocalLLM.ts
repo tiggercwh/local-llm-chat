@@ -45,14 +45,18 @@ export function useLocalLLM() {
 
     try {
       const completion = await engineRef?.current?.chat.completions.create({
-        stream: true,
-        messages,
+        messages: messages.map((msg) => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        })),
         temperature: 0.7,
         top_p: 0.95,
-        logit_bias: { "14444": -100 },
-        repetition_penalty: 1.2,
-        frequency_penalty: 0.5,
+        stream: true,
       });
+
+      if (!completion) {
+        throw new Error("Failed to create completion");
+      }
 
       for await (const chunk of completion) {
         const curDelta = chunk.choices[0]?.delta.content;

@@ -29,7 +29,7 @@ export function Chat({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { generateResponse, isLoading: isLocalLoading } = useLocalLLM();
-  const isLoading = isLocalModel ? isLocalLoading : isStreaming;
+  const isLoading = isLocalModel ? isLocalLoading || isStreaming : isStreaming;
 
   const handleSubmit = useCallback(
     async (prompt: string) => {
@@ -48,6 +48,7 @@ export function Chat({
 
       try {
         if (isLocalModel) {
+          // Local Model Logic
           generateResponse(
             updatedMessages,
             (chunk) => {
@@ -60,9 +61,7 @@ export function Chat({
               };
               setMessages([...updatedMessages, assistantMessage]);
               setStreamingContent("");
-              if (!chatId) {
-                router.push(`/chat/${Date.now()}`);
-              }
+              setIsStreaming(false);
             }
           );
         } else {

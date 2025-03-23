@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Message } from "@/lib/types";
 import { Send } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useChat } from "@/app/contexts/ChatContext";
+import { useChat } from "@/contexts/ChatContext";
 import { v4 as uuidv4 } from "uuid";
 
 export function HomeChat() {

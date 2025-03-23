@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 import { ModelSelector } from "@/components/model-selector";
 import { ChatHistoryArea } from "@/components/chat-history-area";
-import { useChat } from "@/app/contexts/ChatContext";
+import { useChat } from "@/contexts/ChatContext";
 
 interface LayoutProps {
   children: React.ReactNode;
