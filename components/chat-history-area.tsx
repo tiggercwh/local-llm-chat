@@ -21,6 +21,15 @@ export function ChatHistoryArea({
   return (
     <ScrollArea className="h-[calc(100vh-8rem)]">
       <div className="space-y-2">
+        <Button
+          variant="default"
+          className="w-full justify-start text-left mb-4"
+          onClick={() => router.push("/")}
+        >
+          <div className="flex items-center gap-2">
+            <span>Create New Chat</span>
+          </div>
+        </Button>
         {histories.map((chat) => (
           <Button
             key={chat.id}
