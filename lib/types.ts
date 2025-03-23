@@ -1,3 +1,4 @@
+// link with Chat history id
 export type Message = {
   role: string;
   content: string;
@@ -6,8 +7,7 @@ export type Message = {
 export type ChatHistory = {
   id: string;
   title: string;
-  messages: Message[];
-  createdAt: string;
+  createdAt: number;
 };
 
 export type ChatResponse = {

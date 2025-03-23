@@ -6,27 +6,36 @@ import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatHistory as ChatHistoryType } from "@/lib/types";
+import { useRouter } from "next/navigation";
 
 interface ChatHistoryProps {
   histories: ChatHistoryType[];
   currentChatId: string;
-  onSelectChat: (id: string) => void;
 }
 
 export function ChatHistoryArea({
   histories,
   currentChatId,
-  onSelectChat,
 }: ChatHistoryProps) {
+  const router = useRouter();
   return (
     <ScrollArea className="h-[calc(100vh-8rem)]">
       <div className="space-y-2">
+        <Button
+          variant="default"
+          className="w-full justify-start text-left mb-4"
+          onClick={() => router.push("/")}
+        >
+          <div className="flex items-center gap-2">
+            <span>Create New Chat</span>
+          </div>
+        </Button>
         {histories.map((chat) => (
           <Button
             key={chat.id}
             variant={chat.id === currentChatId ? "secondary" : "ghost"}
             className="w-full justify-start text-left"
-            onClick={() => onSelectChat(chat.id)}
+            onClick={() => router.push(`/chat/${chat.id}`)}
           >
             <div className="flex flex-col items-start">
               <span className="truncate max-w-[200px]">{chat.title}</span>
