@@ -8,28 +8,24 @@ import { Message } from "@/lib/types";
 import { Send } from "lucide-react";
 import { useLocalLLM } from "@/hooks/useLocalLLM";
 import { useRouter } from "next/navigation";
+import { useModelContext } from "@/contexts/ModelContext";
+import { ModelSelector } from "./model-selector";
 
 interface ChatProps {
   messages: Message[];
   setMessages: (messages: Message[]) => void;
-  isLocalModel: boolean;
   chatId?: string;
 }
 
-export function Chat({
-  isLocalModel,
-  chatId,
-  setMessages,
-  messages,
-}: ChatProps) {
+export function Chat({ chatId, setMessages, messages }: ChatProps) {
   const router = useRouter();
   const [input, setInput] = useState("");
   const [streamingContent, setStreamingContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
+  const { isLocalLLM, setIsLocalLLM } = useModelContext();
   const { generateResponse, isLoading: isLocalLoading } = useLocalLLM();
-  const isLoading = isLocalModel ? isLocalLoading || isStreaming : isStreaming;
+  const isLoading = isLocalLLM ? isLocalLoading || isStreaming : isStreaming;
 
   const handleSubmit = useCallback(
     async (prompt: string) => {
@@ -47,7 +43,7 @@ export function Chat({
       setStreamingContent("");
 
       try {
-        if (isLocalModel) {
+        if (isLocalLLM) {
           // Local Model Logic
           generateResponse(
             updatedMessages,
@@ -111,7 +107,7 @@ export function Chat({
         setStreamingContent("");
       }
     },
-    [isLocalModel, chatId, router, messages, setMessages]
+    [isLocalLLM, chatId, router, messages, setMessages]
   );
 
   // Handle initial prompt on mount
@@ -192,7 +188,11 @@ export function Chat({
             className="min-h-[120px] resize-y font-mono"
             disabled={isLoading}
           />
-          <div className="flex justify-end">
+          <div className="flex justify-end space-x-2">
+            <ModelSelector
+              isLocalModel={isLocalLLM}
+              onTypeChange={setIsLocalLLM}
+            />
             <Button type="submit" disabled={isLoading || !input.trim()}>
               {isLoading ? "Processing..." : "Send"}
               {!isLoading && <Send className="ml-2 h-4 w-4" />}

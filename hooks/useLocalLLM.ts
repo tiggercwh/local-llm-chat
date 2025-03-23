@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import * as webllm from "@mlc-ai/web-llm";
 import { Message } from "@/lib/types";
 
@@ -6,33 +6,30 @@ export function useLocalLLM() {
   const engineRef = useRef<webllm.MLCEngine | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Initialize WebLLM on mount
-  useEffect(() => {
-    async function initWebLLM() {
-      try {
-        console.log("Initializing WebLLM...");
-        engineRef.current = await webllm.CreateMLCEngine("TinySwallow-1.5B", {
-          appConfig: {
-            model_list: [
-              {
-                model:
-                  "https://huggingface.co/SakanaAI/TinySwallow-1.5B-Instruct-q4f32_1-MLC",
-                model_id: "TinySwallow-1.5B",
-                model_lib:
-                  webllm.modelLibURLPrefix +
-                  webllm.modelVersion +
-                  "/Qwen2-1.5B-Instruct-q4f32_1-ctx4k_cs1k-webgpu.wasm",
-              },
-            ],
-          },
-        });
-        console.log("WebLLM model loaded successfully!");
-      } catch (error) {
-        console.error("Error initializing WebLLM:", error);
-      }
+  // Initialize WebLLM
+  async function initWebLLM() {
+    try {
+      console.log("Initializing WebLLM...");
+      engineRef.current = await webllm.CreateMLCEngine("TinySwallow-1.5B", {
+        appConfig: {
+          model_list: [
+            {
+              model:
+                "https://huggingface.co/SakanaAI/TinySwallow-1.5B-Instruct-q4f32_1-MLC",
+              model_id: "TinySwallow-1.5B",
+              model_lib:
+                webllm.modelLibURLPrefix +
+                webllm.modelVersion +
+                "/Qwen2-1.5B-Instruct-q4f32_1-ctx4k_cs1k-webgpu.wasm",
+            },
+          ],
+        },
+      });
+      console.log("WebLLM model loaded successfully!");
+    } catch (error) {
+      console.error("Error initializing WebLLM:", error);
     }
-    initWebLLM();
-  }, []);
+  }
 
   // Function to generate response using local LLM
   const generateResponse = async (
@@ -41,6 +38,9 @@ export function useLocalLLM() {
     onFinish: (msg: string) => void
   ) => {
     setIsLoading(true);
+    if (!engineRef.current) {
+      await initWebLLM();
+    }
     let curMessage = "";
 
     try {

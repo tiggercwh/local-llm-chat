@@ -46,12 +46,7 @@ export default function ChatPage({
 
   return (
     <Layout>
-      <Chat
-        messages={messages}
-        setMessages={handleSetMessages}
-        isLocalModel={false}
-        chatId={id}
-      />
+      <Chat messages={messages} setMessages={handleSetMessages} chatId={id} />
     </Layout>
   );
 }

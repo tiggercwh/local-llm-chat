@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
-import { ModelSelector } from "@/components/model-selector";
 import { ChatHistoryArea } from "@/components/chat-history-area";
 import { useChat } from "@/contexts/ChatContext";
 
@@ -14,7 +13,6 @@ interface LayoutProps {
 
 export function Layout({ children, currentChatId }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
-  const [isLocalModel, setIsLocalModel] = useState<boolean>(false);
   const { chatHistories } = useChat();
 
   return (
@@ -46,12 +44,7 @@ export function Layout({ children, currentChatId }: LayoutProps) {
             </Button>
             <h1 className="ml-4 text-xl font-semibold">Local LLM Chat</h1>
           </div>
-          <ModelSelector
-            isLocalModel={isLocalModel}
-            onTypeChange={setIsLocalModel}
-          />
         </header>
-
         {children}
       </div>
     </div>

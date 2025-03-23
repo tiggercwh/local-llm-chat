@@ -9,11 +9,15 @@ import { Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useChat } from "@/contexts/ChatContext";
 import { v4 as uuidv4 } from "uuid";
+import { ModelSelector } from "./model-selector";
+import { useModelContext } from "@/contexts/ModelContext";
 
 export function HomeChat() {
   const router = useRouter();
   const [input, setInput] = useState("");
   const { addChatHistory } = useChat();
+  const { isLocalLLM, setIsLocalLLM } = useModelContext();
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = async (prompt: string) => {
@@ -66,7 +70,11 @@ export function HomeChat() {
             placeholder="Paste your code here and ask for a review..."
             className="min-h-[120px] resize-y font-mono"
           />
-          <div className="flex justify-end">
+          <div className="flex justify-end space-x-2">
+            <ModelSelector
+              isLocalModel={isLocalLLM}
+              onTypeChange={setIsLocalLLM}
+            />
             <Button type="submit" disabled={!input.trim()}>
               Send
               <Send className="ml-2 h-4 w-4" />
