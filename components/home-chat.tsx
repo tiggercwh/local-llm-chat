@@ -27,7 +27,7 @@ export function HomeChat() {
     localStorage.setItem("initialMessage", JSON.stringify(userMessage));
     addChatHistory({
       id: uuidv4(),
-      title: "Code Review",
+      title: "New Chat",
       createdAt: Date.now(),
     });
 

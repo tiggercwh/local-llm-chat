@@ -10,10 +10,9 @@ import { useChat } from "@/app/contexts/ChatContext";
 interface LayoutProps {
   children: React.ReactNode;
   currentChatId?: string;
-  onSelectChat?: (id: string) => void;
 }
 
-export function Layout({ children, currentChatId, onSelectChat }: LayoutProps) {
+export function Layout({ children, currentChatId }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
   const [isLocalModel, setIsLocalModel] = useState<boolean>(false);
   const { chatHistories } = useChat();
@@ -30,7 +29,6 @@ export function Layout({ children, currentChatId, onSelectChat }: LayoutProps) {
           <ChatHistoryArea
             histories={chatHistories}
             currentChatId={currentChatId || ""}
-            onSelectChat={onSelectChat || (() => {})}
           />
         </div>
       </div>
