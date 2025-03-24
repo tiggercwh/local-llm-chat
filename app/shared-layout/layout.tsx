@@ -5,6 +5,7 @@ import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ChatProvider } from "@/contexts/ChatContext";
 import { ModelProvider } from "@/contexts/ModelContext";
+import { Layout } from "@/components/layout";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -28,7 +29,9 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <ChatProvider>{children}</ChatProvider>
+            <ChatProvider>
+              <Layout>{children}</Layout>
+            </ChatProvider>
           </ThemeProvider>
         </ModelProvider>
       </body>
