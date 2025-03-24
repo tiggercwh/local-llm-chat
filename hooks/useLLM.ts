@@ -83,7 +83,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
 
   // Function to generate response using API
   const generateAPIResponse = async (messages: Message[]) => {
-    const response = await fetch("/api/mock-stream", {
+    const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages }),

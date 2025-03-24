@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const key = ""; //process.env.GOOGLE_API_KEY!
-const genAI = new GoogleGenerativeAI(key);
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
 
 // TODO: Error handling
 export async function POST(req: Request) {
