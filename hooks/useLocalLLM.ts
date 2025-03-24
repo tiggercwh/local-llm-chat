@@ -45,10 +45,17 @@ export function useLocalLLM() {
 
     try {
       const completion = await engineRef?.current?.chat.completions.create({
-        messages: messages.map((msg) => ({
-          role: msg.role as "user" | "assistant",
-          content: msg.content,
-        })),
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a code assistant. You only return modified code snippets, not explanations. When given code, your job is to return an updated version based on the request.",
+          },
+          ...messages.map((msg) => ({
+            role: msg.role as "user" | "assistant",
+            content: msg.content,
+          })),
+        ],
         temperature: 0.7,
         top_p: 0.95,
         stream: true,

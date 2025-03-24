@@ -145,15 +145,15 @@ export function Chat({ chatId, setMessages, messages }: ChatProps) {
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`flex ${
+                className={`flex mb-4 ${
                   message.role === "user" ? "justify-end" : "justify-start"
                 }`}
               >
                 <div
-                  className={`max-w-[80%] whitespace-pre-wrap rounded-lg p-4 ${
+                  className={`whitespace-pre-wrap rounded-lg p-4 ${
                     message.role === "user"
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-200 dark:bg-gray-800"
+                      ? "bg-blue-500 text-white max-w-[80%]"
+                      : "bg-gray-200 dark:bg-gray-800 w-full"
                   }`}
                 >
                   {message.content}
