@@ -20,10 +20,12 @@ export function Chat({ setMessages, messages }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { isLocalLLM, setIsLocalLLM } = useModelContext();
 
-  const { generateResponse, isLoading, streamingContent } = useLLM({
-    isLocalLLM,
-    onUpdateMessages: setMessages,
-  });
+  const { generateResponse, isModelLoading, isStreaming, streamingContent } =
+    useLLM({
+      isLocalLLM,
+      onUpdateMessages: setMessages,
+    });
+  const isLoading = isModelLoading || isStreaming;
 
   // Handle initial prompt on mount
   useEffect(() => {
@@ -59,8 +61,8 @@ export function Chat({ setMessages, messages }: ChatProps) {
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`flex mb-4 ${
-                  message.role === "user" ? "justify-end" : "justify-start"
+                className={`flex mb-4 w-full ${
+                  message.role === "user" && "justify-end"
                 }`}
               >
                 <div
@@ -74,9 +76,16 @@ export function Chat({ setMessages, messages }: ChatProps) {
                 </div>
               </div>
             ))}
+            {isLoading && !isStreaming && (
+              <div className="flex mb-4">
+                <div className="whitespace-pre-wrap rounded-lg p-4 bg-gray-200 dark:bg-gray-800">
+                  Loading ...
+                </div>
+              </div>
+            )}
             {streamingContent && (
-              <div className="flex justify-start">
-                <div className="bg-gray-200 dark:bg-gray-800 rounded-lg p-4 whitespace-pre-wrap">
+              <div className="flex w-full">
+                <div className="bg-gray-200 dark:bg-gray-800 rounded-lg p-4 whitespace-pre-wrap w-full">
                   {streamingContent}
                 </div>
               </div>
