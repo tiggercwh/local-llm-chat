@@ -5,8 +5,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-// import remarkGfm from "remark-gfm";
-// import rehypeHighlight from "rehype-highlight";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+
 interface CodeBlockProps {
   language: string;
   value: string;
@@ -38,9 +39,17 @@ function CodeBlock({ language, value }: CodeBlockProps) {
           )}
         </Button>
       </div>
-      <pre className="bg-gray-900 dark:bg-gray-950 overflow-x-auto p-4 rounded-b-lg">
-        <code className={`language-${language}`}>{value}</code>
-      </pre>
+      <SyntaxHighlighter
+        language={language}
+        style={oneDark}
+        customStyle={{
+          margin: 0,
+          padding: "1rem",
+        }}
+        showLineNumbers
+      >
+        {value}
+      </SyntaxHighlighter>
     </div>
   );
 }
@@ -90,8 +99,6 @@ export function Message({ message }: MessageProps) {
             ) : (
               // Markdown for assistant messages
               <ReactMarkdown
-                // rehypePlugins={[rehypeHighlight]}
-                // remarkPlugins={[remarkGfm]}
                 components={{
                   code: ({
                     className,
