@@ -1,125 +1,39 @@
 "use client";
 
 import type React from "react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Message } from "@/lib/types";
 import { Send } from "lucide-react";
-import { useLocalLLM } from "@/hooks/useLocalLLM";
-import { useRouter } from "next/navigation";
 import { useModelContext } from "@/contexts/ModelContext";
 import { ModelSelector } from "./model-selector";
+import { useLLM } from "@/hooks/useLLM";
 
 interface ChatProps {
   messages: Message[];
   setMessages: (messages: Message[]) => void;
-  chatId?: string;
 }
 
-export function Chat({ chatId, setMessages, messages }: ChatProps) {
-  const router = useRouter();
+export function Chat({ setMessages, messages }: ChatProps) {
   const [input, setInput] = useState("");
-  const [streamingContent, setStreamingContent] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { isLocalLLM, setIsLocalLLM } = useModelContext();
-  const { generateResponse, isLoading: isLocalLoading } = useLocalLLM();
-  const isLoading = isLocalLLM ? isLocalLoading || isStreaming : isStreaming;
 
-  const handleSubmit = useCallback(
-    async (prompt: string) => {
-      if (!prompt.trim() || isStreaming) return;
-      console.log("prompt", prompt);
-      const userMessage: Message = {
-        role: "user",
-        content: prompt.trim(),
-      };
-
-      const updatedMessages = [...messages, userMessage];
-      setMessages(updatedMessages);
-      setInput("");
-      setIsStreaming(true);
-      setStreamingContent("");
-
-      try {
-        if (isLocalLLM) {
-          // Local Model Logic
-          generateResponse(
-            updatedMessages,
-            (chunk) => {
-              setStreamingContent(chunk);
-            },
-            (finalContent) => {
-              const assistantMessage: Message = {
-                role: "assistant",
-                content: finalContent,
-              };
-              setMessages([...updatedMessages, assistantMessage]);
-              setStreamingContent("");
-              setIsStreaming(false);
-            }
-          );
-        } else {
-          console.log("calling api");
-          const response = await fetch("/api/mock-stream", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ messages: updatedMessages }),
-          });
-
-          if (!response.ok) throw new Error("Failed to fetch response");
-
-          const reader = response.body?.getReader();
-          if (!reader) throw new Error("No reader available");
-
-          const decoder = new TextDecoder();
-          let accumulatedContent = "";
-
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              const chunk = decoder.decode(value);
-              accumulatedContent += chunk;
-              setStreamingContent(accumulatedContent);
-            }
-
-            // When streaming is complete, add the final message
-            const assistantMessage: Message = {
-              role: "assistant",
-              content: accumulatedContent,
-            };
-            setMessages([...updatedMessages, assistantMessage]);
-            setIsStreaming(false);
-            setStreamingContent("");
-            if (!chatId) {
-              router.push(`/chat/${Date.now()}`);
-            }
-          } finally {
-            reader.releaseLock();
-          }
-        }
-      } catch (error) {
-        console.error("Error:", error);
-        setIsStreaming(false);
-        setStreamingContent("");
-      }
-    },
-    [isLocalLLM, chatId, router, messages, setMessages]
-  );
+  const { generateResponse, isLoading, streamingContent } = useLLM({
+    isLocalLLM,
+    onUpdateMessages: setMessages,
+  });
 
   // Handle initial prompt on mount
   useEffect(() => {
     const initialMessage = localStorage.getItem("initialMessage");
-    console.log("initialMessage", initialMessage);
     if (initialMessage) {
       const message = JSON.parse(initialMessage);
-      handleSubmit(message.content);
+      generateResponse(message.content, messages);
       localStorage.removeItem("initialMessage");
     }
-  }, [handleSubmit]);
+  }, [generateResponse, messages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -177,7 +91,8 @@ export function Chat({ chatId, setMessages, messages }: ChatProps) {
           onSubmit={(e) => {
             e.preventDefault();
             if (!input.trim() || isLoading) return;
-            handleSubmit(input.trim());
+            generateResponse(input.trim(), messages);
+            setInput("");
           }}
           className="flex flex-col space-y-2"
         >

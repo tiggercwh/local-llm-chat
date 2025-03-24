@@ -29,14 +29,15 @@ export function HomeChat() {
 
     // Store the initial message in localStorage
     localStorage.setItem("initialMessage", JSON.stringify(userMessage));
+    const chatId = uuidv4();
     addChatHistory({
-      id: uuidv4(),
+      id: chatId,
       title: "New Chat",
       createdAt: Date.now(),
     });
 
     // Redirect to new chat page
-    router.push(`/chat/${Date.now()}`);
+    router.push(`/chat/${chatId}`);
   };
 
   return (

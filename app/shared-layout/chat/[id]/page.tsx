@@ -43,7 +43,5 @@ export default function ChatPage({
     setMessages(newMessages);
   };
 
-  return (
-    <Chat messages={messages} setMessages={handleSetMessages} chatId={id} />
-  );
+  return <Chat messages={messages} setMessages={handleSetMessages} />;
 }
