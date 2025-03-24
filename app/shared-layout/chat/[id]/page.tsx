@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { use } from "react";
 import { Chat } from "@/components/chat";
-import { Layout } from "@/components/layout";
 import { Message } from "@/lib/types";
 
 export default function ChatPage({
@@ -45,8 +44,6 @@ export default function ChatPage({
   };
 
   return (
-    <Layout>
-      <Chat messages={messages} setMessages={handleSetMessages} chatId={id} />
-    </Layout>
+    <Chat messages={messages} setMessages={handleSetMessages} chatId={id} />
   );
 }
