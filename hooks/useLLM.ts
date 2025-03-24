@@ -9,7 +9,7 @@ interface UseLLMProps {
 
 export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
   const engineRef = useRef<webllm.MLCEngine | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isModelLoading, setIsModelLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
 
@@ -66,7 +66,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
       if (!completion) {
         throw new Error("Failed to create completion");
       }
-
+      setIsStreaming(true);
       for await (const chunk of completion) {
         const curDelta = chunk.choices[0]?.delta.content;
         if (curDelta) {
@@ -98,6 +98,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
     let accumulatedContent = "";
 
     try {
+      setIsStreaming(true);
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -124,8 +125,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
     const updatedMessages = [...messages, userMessage];
     onUpdateMessages(updatedMessages);
 
-    setIsLoading(true);
-    setIsStreaming(true);
+    setIsModelLoading(true);
     setStreamingContent("");
 
     try {
@@ -142,7 +142,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
     } catch (error) {
       console.error("Error:", error);
     } finally {
-      setIsLoading(false);
+      setIsModelLoading(false);
       setIsStreaming(false);
       setStreamingContent("");
     }
@@ -150,7 +150,8 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
 
   return {
     generateResponse,
-    isLoading: isLoading || isStreaming,
+    isModelLoading,
+    isStreaming,
     streamingContent,
   };
 }
