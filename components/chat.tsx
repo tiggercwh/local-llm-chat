@@ -4,11 +4,12 @@ import type React from "react";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Message } from "@/lib/types";
+import { Message as MessageComponent } from "@/components/message";
 import { Send } from "lucide-react";
 import { useModelContext } from "@/contexts/ModelContext";
 import { ModelSelector } from "./model-selector";
 import { useLLM } from "@/hooks/useLLM";
+import { Message } from "@/lib/types";
 
 interface ChatProps {
   messages: Message[];
@@ -59,22 +60,7 @@ export function Chat({ setMessages, messages }: ChatProps) {
         ) : (
           <>
             {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`flex mb-4 w-full ${
-                  message.role === "user" && "justify-end"
-                }`}
-              >
-                <div
-                  className={`whitespace-pre-wrap rounded-lg p-4 ${
-                    message.role === "user"
-                      ? "bg-blue-500 text-white max-w-[80%]"
-                      : "bg-gray-200 dark:bg-gray-800 w-full"
-                  }`}
-                >
-                  {message.content}
-                </div>
-              </div>
+              <MessageComponent key={index} message={message} />
             ))}
             {isLoading && !isStreaming && (
               <div className="flex mb-4">
@@ -86,7 +72,12 @@ export function Chat({ setMessages, messages }: ChatProps) {
             {streamingContent && (
               <div className="flex w-full">
                 <div className="bg-gray-200 dark:bg-gray-800 rounded-lg p-4 whitespace-pre-wrap w-full">
-                  {streamingContent}
+                  <MessageComponent
+                    message={{
+                      content: streamingContent,
+                      role: "assistant",
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -118,7 +109,7 @@ export function Chat({ setMessages, messages }: ChatProps) {
               onTypeChange={setIsLocalLLM}
             />
             <Button type="submit" disabled={isLoading || !input.trim()}>
-              {isLoading ? "Processing..." : "Send"}
+              {isLoading ? "Processing..." : "Review Code"}
               {!isLoading && <Send className="ml-2 h-4 w-4" />}
             </Button>
           </div>
