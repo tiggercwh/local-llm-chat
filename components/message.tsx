@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, ComponentPropsWithoutRef } from "react";
+import { useState, ComponentPropsWithoutRef, memo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
@@ -13,13 +13,23 @@ interface CodeBlockProps {
   value: string;
 }
 
-function CodeBlock({ language, value }: CodeBlockProps) {
+const CodeBlock = memo(function CodeBlock({ language, value }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(value);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const highlighterProps = {
+    language,
+    style: oneDark,
+    customStyle: {
+      margin: 0,
+      padding: "1rem",
+    },
+    showLineNumbers: true,
   };
 
   return (
@@ -39,20 +49,38 @@ function CodeBlock({ language, value }: CodeBlockProps) {
           )}
         </Button>
       </div>
-      <SyntaxHighlighter
-        language={language}
-        style={oneDark}
-        customStyle={{
-          margin: 0,
-          padding: "1rem",
-        }}
-        showLineNumbers
-      >
-        {value}
-      </SyntaxHighlighter>
+      <SyntaxHighlighter {...highlighterProps}>{value}</SyntaxHighlighter>
     </div>
   );
-}
+});
+
+const CodeComponent = ({
+  className,
+  children,
+  ...props
+}: ComponentPropsWithoutRef<"code">) => {
+  const match = /language-(\w+)/.exec(className || "");
+
+  // Force detecting inline code by checking length and content
+  const isInlineCode =
+    typeof children === "string" &&
+    !children.toString().includes("\n") &&
+    children.toString().length < 100;
+
+  return isInlineCode ? (
+    <code
+      className="px-1.5 py-0.5 rounded-md bg-gray-200 dark:bg-gray-800 font-mono text-sm border border-gray-300 dark:border-gray-700"
+      {...props}
+    >
+      {children}
+    </code>
+  ) : (
+    <CodeBlock
+      language={match?.[1] || ""}
+      value={String(children).replace(/\n$/, "")}
+    />
+  );
+};
 
 interface MessageProps {
   message: {
@@ -64,7 +92,7 @@ interface MessageProps {
 export function Message({ message }: MessageProps) {
   return (
     <div
-      className={`flex w-full mb-4 ${
+      className={`flex w-full min-w-xl mb-4 ${
         message.role === "user" ? "justify-end" : "justify-start"
       }`}
     >
@@ -100,33 +128,7 @@ export function Message({ message }: MessageProps) {
               // Markdown for assistant messages
               <ReactMarkdown
                 components={{
-                  code: ({
-                    className,
-                    children,
-                    ...props
-                  }: ComponentPropsWithoutRef<"code">) => {
-                    const match = /language-(\w+)/.exec(className || "");
-
-                    // Force detecting inline code by checking length and content
-                    const isInlineCode =
-                      typeof children === "string" &&
-                      !children.toString().includes("\n") &&
-                      children.toString().length < 100;
-
-                    return isInlineCode ? (
-                      <code
-                        className="px-1.5 py-0.5 rounded-md bg-gray-200 dark:bg-gray-800 font-mono text-sm border border-gray-300 dark:border-gray-700"
-                        {...props}
-                      >
-                        {children}
-                      </code>
-                    ) : (
-                      <CodeBlock
-                        language={match?.[1] || ""}
-                        value={String(children).replace(/\n$/, "")}
-                      />
-                    );
-                  },
+                  code: CodeComponent,
                 }}
               >
                 {message.content}

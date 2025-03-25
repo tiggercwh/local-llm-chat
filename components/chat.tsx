@@ -72,7 +72,12 @@ export function Chat({ setMessages, messages }: ChatProps) {
             {streamingContent && (
               <div className="flex w-full">
                 <div className="bg-gray-200 dark:bg-gray-800 rounded-lg p-4 whitespace-pre-wrap w-full">
-                  {streamingContent}
+                  <MessageComponent
+                    message={{
+                      content: streamingContent,
+                      role: "assistant",
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -104,7 +109,7 @@ export function Chat({ setMessages, messages }: ChatProps) {
               onTypeChange={setIsLocalLLM}
             />
             <Button type="submit" disabled={isLoading || !input.trim()}>
-              {isLoading ? "Processing..." : "Send"}
+              {isLoading ? "Processing..." : "Review Code"}
               {!isLoading && <Send className="ml-2 h-4 w-4" />}
             </Button>
           </div>
