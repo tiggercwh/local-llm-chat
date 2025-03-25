@@ -3,18 +3,25 @@
 import { useState, ComponentPropsWithoutRef, memo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, GitCompare } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import ReadOnlyDiffEditor from "./code-diff";
 
 interface CodeBlockProps {
   language: string;
   value: string;
+  userMessage?: string;
 }
 
-const CodeBlock = memo(function CodeBlock({ language, value }: CodeBlockProps) {
+const CodeBlock = memo(function CodeBlock({
+  language,
+  value,
+  userMessage,
+}: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(value);
@@ -36,20 +43,37 @@ const CodeBlock = memo(function CodeBlock({ language, value }: CodeBlockProps) {
     <div className="relative my-4">
       <div className="flex items-center justify-between bg-gray-800 dark:bg-gray-900 text-gray-200 px-4 py-2 text-sm rounded-t-lg">
         <span>{language || "plain text"}</span>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={copyToClipboard}
-          className="h-6 w-6 hover:bg-gray-700"
-        >
-          {copied ? (
-            <Check className="h-4 w-4" />
-          ) : (
-            <Copy className="h-4 w-4" />
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowDiff(true)}
+            className="h-6 w-6 hover:bg-gray-700"
+            title="Show diff"
+          >
+            <GitCompare className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={copyToClipboard}
+            className="h-6 w-6 hover:bg-gray-700"
+          >
+            {copied ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
       </div>
       <SyntaxHighlighter {...highlighterProps}>{value}</SyntaxHighlighter>
+      <ReadOnlyDiffEditor
+        originalCode={userMessage || ""}
+        modifiedCode={value}
+        open={showDiff}
+        onOpenChange={setShowDiff}
+      />
     </div>
   );
 });
@@ -58,7 +82,7 @@ const CodeComponent = ({
   className,
   children,
   ...props
-}: ComponentPropsWithoutRef<"code">) => {
+}: ComponentPropsWithoutRef<"code"> & { userMessage?: string }) => {
   const match = /language-(\w+)/.exec(className || "");
 
   // Force detecting inline code by checking length and content
@@ -78,6 +102,7 @@ const CodeComponent = ({
     <CodeBlock
       language={match?.[1] || ""}
       value={String(children).replace(/\n$/, "")}
+      userMessage={props.userMessage}
     />
   );
 };
@@ -87,9 +112,13 @@ interface MessageProps {
     role: string;
     content: string;
   };
+  prev: {
+    role: string;
+    content: string;
+  };
 }
 
-export function Message({ message }: MessageProps) {
+export function Message({ message, prev }: MessageProps) {
   return (
     <div
       className={`flex w-full min-w-xl mb-4 ${
@@ -128,7 +157,9 @@ export function Message({ message }: MessageProps) {
               // Markdown for assistant messages
               <ReactMarkdown
                 components={{
-                  code: CodeComponent,
+                  code: (props) => (
+                    <CodeComponent {...props} userMessage={prev.content} />
+                  ),
                 }}
               >
                 {message.content}

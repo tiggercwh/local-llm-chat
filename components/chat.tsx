@@ -65,7 +65,11 @@ export function Chat({ setMessages, messages }: ChatProps) {
         ) : (
           <>
             {messages.map((message, index) => (
-              <MessageComponent key={index} message={message} />
+              <MessageComponent
+                key={index}
+                message={message}
+                prev={messages[index - 1]}
+              />
             ))}
             {isLoading && !isStreaming && (
               <div className="flex mb-4">
@@ -82,6 +86,7 @@ export function Chat({ setMessages, messages }: ChatProps) {
                       content: streamingContent,
                       role: "assistant",
                     }}
+                    prev={messages[messages.length - 1]}
                   />
                 </div>
               </div>
