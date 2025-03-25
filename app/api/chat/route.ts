@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const key = ""; //process.env.GOOGLE_API_KEY!
-const genAI = new GoogleGenerativeAI(key);
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
 
 // TODO: Error handling
 export async function POST(req: Request) {
@@ -29,7 +28,7 @@ export async function POST(req: Request) {
 
   const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-  const prompt = `Please analyze this code for bugs and suggest improvements: ${userMessages}`;
+  const prompt = `You are a code reviewer. Please analyze this code for bugs and suggest improvements: ${userMessages}`;
 
   const result = await model.generateContentStream(prompt);
 
@@ -53,6 +52,7 @@ export async function POST(req: Request) {
     },
   });
 
+  // TODO: Implement OpenAI API
   // const response = await fetch("https://api.openai.com/v1/chat/completions", {
   //   method: "POST",
   //   headers: {

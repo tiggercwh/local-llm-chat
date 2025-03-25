@@ -21,11 +21,16 @@ export function Chat({ setMessages, messages }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { isLocalLLM, setIsLocalLLM } = useModelContext();
 
-  const { generateResponse, isModelLoading, isStreaming, streamingContent } =
-    useLLM({
-      isLocalLLM,
-      onUpdateMessages: setMessages,
-    });
+  const {
+    abortGeneration,
+    generateResponse,
+    isModelLoading,
+    isStreaming,
+    streamingContent,
+  } = useLLM({
+    isLocalLLM,
+    onUpdateMessages: setMessages,
+  });
   const isLoading = isModelLoading || isStreaming;
 
   // Handle initial prompt on mount
@@ -90,9 +95,13 @@ export function Chat({ setMessages, messages }: ChatProps) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!input.trim() || isLoading) return;
-            generateResponse(input.trim(), messages);
-            setInput("");
+            if (!isLoading) {
+              if (!input.trim() || isLoading) return;
+              generateResponse(input.trim(), messages);
+              setInput("");
+            } else {
+              abortGeneration();
+            }
           }}
           className="flex flex-col space-y-2"
         >
@@ -108,8 +117,8 @@ export function Chat({ setMessages, messages }: ChatProps) {
               isLocalModel={isLocalLLM}
               onTypeChange={setIsLocalLLM}
             />
-            <Button type="submit" disabled={isLoading || !input.trim()}>
-              {isLoading ? "Processing..." : "Review Code"}
+            <Button type="submit">
+              {isLoading ? "Stop Review" : "Review Code"}
               {!isLoading && <Send className="ml-2 h-4 w-4" />}
             </Button>
           </div>

@@ -12,6 +12,15 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
   const [isModelLoading, setIsModelLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const abortGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setIsModelLoading(false);
+      setIsStreaming(false);
+    }
+  };
 
   // Initialize WebLLM
   async function initWebLLM() {
@@ -44,6 +53,8 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
       await initWebLLM();
     }
     let curMessage = "";
+    let hasStartedStreaming = false;
+    abortControllerRef.current = new AbortController();
 
     try {
       const completion = await engineRef?.current?.chat.completions.create({
@@ -51,7 +62,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
           {
             role: "system",
             content:
-              "You are a code assistant. You only return modified code snippets, not explanations. When given code, your job is to return an updated version based on the request.",
+              "You are a code reviewer. Please analyze this code for bugs and suggest improvements:",
           },
           ...messages.map((msg) => ({
             role: msg.role as "user" | "assistant",
@@ -66,27 +77,43 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
       if (!completion) {
         throw new Error("Failed to create completion");
       }
-      setIsStreaming(true);
+
       for await (const chunk of completion) {
+        if (abortControllerRef.current?.signal.aborted) {
+          throw new Error("Generation aborted");
+        }
+
         const curDelta = chunk.choices[0]?.delta.content;
         if (curDelta) {
+          if (!hasStartedStreaming) {
+            setIsStreaming(true);
+            hasStartedStreaming = true;
+          }
           curMessage += curDelta;
           setStreamingContent(curMessage);
         }
       }
       return curMessage;
     } catch (error) {
+      if (error instanceof Error && error.message === "Generation aborted") {
+        console.log("Generation was aborted");
+        return `${curMessage}\n\nGeneration was aborted`;
+      }
       console.error("Error generating response:", error);
       throw error;
+    } finally {
+      abortControllerRef.current = null;
     }
   };
 
   // Function to generate response using API
   const generateAPIResponse = async (messages: Message[]) => {
-    const response = await fetch("/api/mock-stream", {
+    abortControllerRef.current = new AbortController();
+    const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages }),
+      signal: abortControllerRef.current.signal,
     });
 
     if (!response.ok) throw new Error("Failed to fetch response");
@@ -100,6 +127,10 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
     try {
       setIsStreaming(true);
       while (true) {
+        if (abortControllerRef.current?.signal.aborted) {
+          throw new Error("Generation aborted");
+        }
+
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -109,8 +140,15 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
       }
 
       return accumulatedContent;
+    } catch (error) {
+      if (error instanceof Error && error.message === "Generation aborted") {
+        console.log("Generation was aborted");
+        return accumulatedContent;
+      }
+      throw error;
     } finally {
       reader.releaseLock();
+      abortControllerRef.current = null;
     }
   };
 
@@ -150,6 +188,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
 
   return {
     generateResponse,
+    abortGeneration,
     isModelLoading,
     isStreaming,
     streamingContent,
