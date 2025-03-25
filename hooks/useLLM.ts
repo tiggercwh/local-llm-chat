@@ -97,7 +97,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
     } catch (error) {
       if (error instanceof Error && error.message === "Generation aborted") {
         console.log("Generation was aborted");
-        return `${curMessage}\n\nGeneration was aborted`;
+        return `${curMessage}\nGeneration was aborted`;
       }
       console.error("Error generating response:", error);
       throw error;
@@ -143,7 +143,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
     } catch (error) {
       if (error instanceof Error && error.message === "Generation aborted") {
         console.log("Generation was aborted");
-        return accumulatedContent;
+        return `${accumulatedContent}\nGeneration was aborted`;
       }
       throw error;
     } finally {
