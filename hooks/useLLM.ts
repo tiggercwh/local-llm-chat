@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import * as webllm from "@mlc-ai/web-llm";
 import { Message } from "@/lib/types";
 
@@ -7,26 +7,43 @@ interface UseLLMProps {
   onUpdateMessages: (messages: Message[]) => void;
 }
 
+interface LLMState {
+  isModelLoading: boolean;
+  isStreaming: boolean;
+  streamingContent: string;
+  error: string | null;
+}
+
+const initialState: LLMState = {
+  isModelLoading: false,
+  isStreaming: false,
+  streamingContent: "",
+  error: null,
+};
+
 export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
   const engineRef = useRef<webllm.MLCEngine | null>(null);
-  const [isModelLoading, setIsModelLoading] = useState(false);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingContent, setStreamingContent] = useState("");
+  const [state, setState] = useState<LLMState>(initialState);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const abortGeneration = () => {
+  const abortGeneration = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      setIsModelLoading(false);
-      setIsStreaming(false);
+      setState((prevState) => ({
+        ...prevState,
+        isModelLoading: false,
+        isStreaming: false,
+        streamingContent: "Generation aborted.",
+      }));
     }
-  };
+  }, []);
 
   // Initialize WebLLM
-  async function initWebLLM() {
+  const initWebLLM = useCallback(async () => {
     try {
       console.log("Initializing WebLLM...");
       engineRef.current = await webllm.CreateMLCEngine("TinySwallow-1.5B", {
+        //Consider modelConfig
         appConfig: {
           model_list: [
             {
@@ -44,153 +61,201 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
       console.log("WebLLM model loaded successfully!");
     } catch (error) {
       console.error("Error initializing WebLLM:", error);
+      setState((prevState) => ({
+        ...prevState,
+        error: "Failed to initialize WebLLM",
+      }));
     }
-  }
+  }, []);
+
+  const handleGenerationError = useCallback((error: Error) => {
+    console.error("Error generating response:", error);
+    if (error instanceof Error && error.message === "Generation aborted") {
+      console.log("Generation was aborted");
+    }
+    setState((prevState) => ({ ...prevState, error: "Generation failed." }));
+    //Centralized error reporting or UI update can be done here.
+  }, []);
 
   // Function to generate response using local LLM
-  const generateLocalResponse = async (messages: Message[]) => {
-    if (!engineRef.current) {
-      await initWebLLM();
-    }
-    let curMessage = "";
-    let hasStartedStreaming = false;
-    abortControllerRef.current = new AbortController();
-
-    try {
-      const completion = await engineRef?.current?.chat.completions.create({
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a code reviewer. Please analyze this code for bugs and suggest improvements:",
-          },
-          ...messages.map((msg) => ({
-            role: msg.role as "user" | "assistant",
-            content: msg.content,
-          })),
-        ],
-        temperature: 0.7,
-        top_p: 0.95,
-        stream: true,
-      });
-
-      if (!completion) {
-        throw new Error("Failed to create completion");
+  const generateLocalResponse = useCallback(
+    async (messages: Message[]) => {
+      if (!engineRef.current) {
+        await initWebLLM();
       }
 
-      for await (const chunk of completion) {
-        if (abortControllerRef.current?.signal.aborted) {
-          throw new Error("Generation aborted");
+      if (!engineRef.current || !engineRef.current.chat?.completions) {
+        handleGenerationError(
+          new Error("LLM Engine not initialized correctly")
+        );
+        return "";
+      }
+
+      let curMessage = "";
+      let hasStartedStreaming = false;
+      abortControllerRef.current = new AbortController();
+
+      try {
+        const completion = await engineRef.current.chat.completions.create({
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a code reviewer. Please analyze this code for bugs and suggest improvements:",
+            },
+            ...messages.map((msg) => ({
+              role: msg.role as "user" | "assistant",
+              content: msg.content,
+            })),
+          ],
+          temperature: 0.7,
+          top_p: 0.95,
+          stream: true,
+        });
+
+        if (!completion) {
+          throw new Error("Failed to create completion");
         }
 
-        const curDelta = chunk.choices[0]?.delta.content;
-        if (curDelta) {
-          if (!hasStartedStreaming) {
-            setIsStreaming(true);
-            hasStartedStreaming = true;
+        for await (const chunk of completion) {
+          if (abortControllerRef.current?.signal.aborted) {
+            throw new Error("Generation aborted");
           }
-          curMessage += curDelta;
-          setStreamingContent(curMessage);
+
+          const curDelta = chunk.choices[0]?.delta.content;
+          if (curDelta) {
+            if (!hasStartedStreaming) {
+              setState((prevState) => ({ ...prevState, isStreaming: true }));
+              hasStartedStreaming = true;
+            }
+            curMessage += curDelta;
+            setState((prevState) => ({
+              ...prevState,
+              streamingContent: curMessage,
+            }));
+          }
         }
+        return curMessage;
+      } catch (error) {
+        handleGenerationError(error as Error);
+        return curMessage; //Or handle partial message return if needed.
+      } finally {
+        abortControllerRef.current = null;
       }
-      return curMessage;
-    } catch (error) {
-      if (error instanceof Error && error.message === "Generation aborted") {
-        console.log("Generation was aborted");
-        return `${curMessage}\nGeneration was aborted`;
-      }
-      console.error("Error generating response:", error);
-      throw error;
-    } finally {
-      abortControllerRef.current = null;
-    }
-  };
+    },
+    [initWebLLM, handleGenerationError]
+  );
 
   // Function to generate response using API
-  const generateAPIResponse = async (messages: Message[]) => {
-    abortControllerRef.current = new AbortController();
-    const response = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages }),
-      signal: abortControllerRef.current.signal,
-    });
+  const generateAPIResponse = useCallback(
+    async (messages: Message[]) => {
+      abortControllerRef.current = new AbortController();
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages }),
+        signal: abortControllerRef.current.signal,
+      });
 
-    if (!response.ok) throw new Error("Failed to fetch response");
+      if (!response.ok) throw new Error("Failed to fetch response");
 
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("No reader available");
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No reader available");
 
-    const decoder = new TextDecoder();
-    let accumulatedContent = "";
+      const decoder = new TextDecoder();
+      let accumulatedContent = "";
 
-    try {
-      setIsStreaming(true);
-      while (true) {
-        if (abortControllerRef.current?.signal.aborted) {
-          throw new Error("Generation aborted");
+      try {
+        setState((prevState) => ({ ...prevState, isStreaming: true }));
+        while (true) {
+          if (abortControllerRef.current?.signal.aborted) {
+            throw new Error("Generation aborted");
+          }
+
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          accumulatedContent += chunk;
+          setState((prevState) => ({
+            ...prevState,
+            streamingContent: accumulatedContent,
+          }));
         }
 
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        accumulatedContent += chunk;
-        setStreamingContent(accumulatedContent);
+        return accumulatedContent;
+      } catch (error) {
+        handleGenerationError(error as Error);
+        return accumulatedContent; //Or handle partial message return if needed
+      } finally {
+        reader.releaseLock();
+        abortControllerRef.current = null;
       }
+    },
+    [handleGenerationError]
+  );
 
-      return accumulatedContent;
-    } catch (error) {
-      if (error instanceof Error && error.message === "Generation aborted") {
-        console.log("Generation was aborted");
-        return `${accumulatedContent}\nGeneration was aborted`;
-      }
-      throw error;
-    } finally {
-      reader.releaseLock();
-      abortControllerRef.current = null;
-    }
-  };
+  const generateResponse = useCallback(
+    async (prompt: string, messages: Message[]) => {
+      if (!prompt.trim() || state.isStreaming) return;
 
-  const generateResponse = async (prompt: string, messages: Message[]) => {
-    if (!prompt.trim() || isStreaming) return;
-
-    const userMessage: Message = {
-      role: "user",
-      content: prompt.trim(),
-    };
-
-    const updatedMessages = [...messages, userMessage];
-    onUpdateMessages(updatedMessages);
-
-    setIsModelLoading(true);
-    setStreamingContent("");
-
-    try {
-      const finalContent = await (isLocalLLM
-        ? generateLocalResponse(updatedMessages)
-        : generateAPIResponse(updatedMessages));
-
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: finalContent,
+      const userMessage: Message = {
+        role: "user",
+        content: prompt.trim(),
       };
 
-      onUpdateMessages([...updatedMessages, assistantMessage]);
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setIsModelLoading(false);
-      setIsStreaming(false);
-      setStreamingContent("");
-    }
-  };
+      const updatedMessages = [...messages, userMessage];
+      onUpdateMessages(updatedMessages);
+
+      setState((prevState) => ({
+        ...prevState,
+        isModelLoading: true,
+        streamingContent: "",
+      }));
+
+      try {
+        const finalContent = await (isLocalLLM
+          ? generateLocalResponse(updatedMessages)
+          : generateAPIResponse(updatedMessages));
+
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: finalContent,
+        };
+
+        onUpdateMessages([...updatedMessages, assistantMessage]);
+      } catch (error) {
+        console.error("Error:", error); //already handled in generate functions, this might be redundant.
+      } finally {
+        setState((prevState) => ({
+          ...prevState,
+          isModelLoading: false,
+          isStreaming: false,
+          streamingContent: "",
+        }));
+      }
+    },
+    [
+      isLocalLLM,
+      generateLocalResponse,
+      generateAPIResponse,
+      onUpdateMessages,
+      state.isStreaming,
+    ]
+  );
+
+  useEffect(() => {
+    return () => {
+      abortGeneration(); // Cleanup on unmount.
+    };
+  }, [abortGeneration]);
 
   return {
     generateResponse,
     abortGeneration,
-    isModelLoading,
-    isStreaming,
-    streamingContent,
+    isModelLoading: state.isModelLoading,
+    isStreaming: state.isStreaming,
+    streamingContent: state.streamingContent,
+    error: state.error,
   };
 }
