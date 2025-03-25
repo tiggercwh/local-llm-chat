@@ -10,7 +10,7 @@ interface ModelContextType {
 const ModelContext = createContext<ModelContextType | undefined>(undefined);
 
 export function ModelProvider({ children }: { children: React.ReactNode }) {
-  const [isLocalLLM, setIsLocalLLM] = useState(false);
+  const [isLocalLLM, setIsLocalLLM] = useState(true);
 
   return (
     <ModelContext.Provider value={{ isLocalLLM, setIsLocalLLM }}>
