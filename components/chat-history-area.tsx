@@ -1,8 +1,6 @@
 "use client";
 
 import type React from "react";
-
-import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatHistory as ChatHistoryType } from "@/lib/types";
@@ -54,9 +52,7 @@ export function ChatHistoryArea({
               <div className="flex flex-col items-start">
                 <span className="truncate max-w-[200px]">{chat.title}</span>
                 <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(chat.createdAt), {
-                    addSuffix: true,
-                  })}
+                  {new Date(chat.createdAt).toLocaleString()}
                 </span>
               </div>
             </Button>
