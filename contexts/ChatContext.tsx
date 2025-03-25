@@ -23,16 +23,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // Load chat histories from localStorage on initial render
   useEffect(() => {
     const savedHistories = localStorage.getItem("localllm_chatids");
+
     if (savedHistories) {
       setChatHistories(JSON.parse(savedHistories));
     }
   }, []);
 
   const addChatHistory = (chatHistory: ChatHistoryType) => {
-    setChatHistories([...chatHistories, chatHistory]);
+    setChatHistories([chatHistory, ...chatHistories]);
     localStorage.setItem(
       "localllm_chatids",
-      JSON.stringify([...chatHistories, chatHistory])
+      JSON.stringify([chatHistory, ...chatHistories])
     );
   };
 
