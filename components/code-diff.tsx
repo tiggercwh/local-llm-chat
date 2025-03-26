@@ -1,11 +1,6 @@
 import React from "react";
 import { DiffEditor } from "@monaco-editor/react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface ReadOnlyDiffEditorProps {
   originalCode: string;
@@ -23,9 +18,6 @@ function ReadOnlyDiffEditor({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[80vh]">
-        <DialogHeader>
-          <DialogTitle>Code Diff</DialogTitle>
-        </DialogHeader>
         <div className="flex-1 overflow-hidden">
           <DiffEditor
             height="100%"
