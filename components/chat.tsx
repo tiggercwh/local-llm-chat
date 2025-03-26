@@ -68,7 +68,7 @@ export function Chat({ setMessages, messages }: ChatProps) {
               <MessageComponent
                 key={index}
                 message={message}
-                prev={messages[index - 1]}
+                prevContent={messages[index - 1]?.content} // index 0 is trivial, as prevContent is only used by assistant messages
               />
             ))}
             {isLoading && !isStreaming && (
@@ -86,7 +86,7 @@ export function Chat({ setMessages, messages }: ChatProps) {
                       content: streamingContent,
                       role: "assistant",
                     }}
-                    prev={messages[messages.length - 1]}
+                    prevContent={messages[messages.length - 1]?.content}
                   />
                 </div>
               </div>

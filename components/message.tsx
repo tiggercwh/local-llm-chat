@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, ComponentPropsWithoutRef, memo } from "react";
+import { useState, ComponentPropsWithoutRef, memo, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Copy, Check, GitCompare } from "lucide-react";
@@ -78,11 +78,12 @@ const CodeBlock = memo(function CodeBlock({
   );
 });
 
-const CodeComponent = ({
+const CodeComponent = memo(function CodeComponent({
   className,
   children,
+  userMessage,
   ...props
-}: ComponentPropsWithoutRef<"code"> & { userMessage?: string }) => {
+}: ComponentPropsWithoutRef<"code"> & { userMessage?: string }) {
   const match = /language-(\w+)/.exec(className || "");
 
   // Force detecting inline code by checking length and content
@@ -102,72 +103,90 @@ const CodeComponent = ({
     <CodeBlock
       language={match?.[1] || ""}
       value={String(children).replace(/\n$/, "")}
-      userMessage={props.userMessage}
+      userMessage={userMessage}
     />
   );
-};
+});
+
+CodeComponent.displayName = "CodeComponent";
 
 interface MessageProps {
   message: {
     role: string;
     content: string;
   };
-  prev: {
-    role: string;
-    content: string;
-  };
+  prevContent?: string;
 }
 
-export function Message({ message, prev }: MessageProps) {
-  return (
-    <div
-      className={`flex w-full min-w-xl mb-4 ${
-        message.role === "user" ? "justify-end" : "justify-start"
-      }`}
-    >
-      <div className="flex items-start gap-2 max-w-3xl">
-        <div
-          className={`p-1 rounded-full ${
-            message.role === "user" ? "bg-blue-500" : "bg-green-500"
-          }`}
-        >
-          <div className="w-8 h-8 flex items-center justify-center text-white font-semibold">
-            {message.role === "user" ? "U" : "A"}
-          </div>
-        </div>
+const Message = memo(
+  function Message({ message, prevContent }: MessageProps) {
+    const codeComponent = useMemo(() => {
+      const CodeComponentWrapper = (
+        props: ComponentPropsWithoutRef<"code">
+      ) => <CodeComponent {...props} userMessage={prevContent} />;
+      CodeComponentWrapper.displayName = "CodeComponentWrapper";
+      return CodeComponentWrapper;
+    }, [prevContent]);
 
-        <Card
-          className={`p-4 ${
-            message.role === "user"
-              ? "bg-blue-50 dark:bg-blue-950"
-              : "bg-white dark:bg-gray-900"
-          }`}
-        >
-          <div className="flex justify-between items-start mb-2">
-            <div className="font-semibold">
-              {message.role === "user" ? "You" : "Assistant"}
+    return (
+      <div
+        className={`flex w-full min-w-xl mb-4 ${
+          message.role === "user" ? "justify-end" : "justify-start"
+        }`}
+      >
+        <div className="flex items-start gap-2 max-w-3xl">
+          <div
+            className={`p-1 rounded-full ${
+              message.role === "user" ? "bg-blue-500" : "bg-green-500"
+            }`}
+          >
+            <div className="w-8 h-8 flex items-center justify-center text-white font-semibold">
+              {message.role === "user" ? "U" : "A"}
             </div>
           </div>
 
-          <div className="prose dark:prose-invert max-w-none">
-            {message.role === "user" ? (
-              // Plain text for user messages
-              <div className="whitespace-pre-wrap">{message.content}</div>
-            ) : (
-              // Markdown for assistant messages
-              <ReactMarkdown
-                components={{
-                  code: (props) => (
-                    <CodeComponent {...props} userMessage={prev.content} />
-                  ),
-                }}
-              >
-                {message.content}
-              </ReactMarkdown>
-            )}
-          </div>
-        </Card>
+          <Card
+            className={`p-4 ${
+              message.role === "user"
+                ? "bg-blue-50 dark:bg-blue-950"
+                : "bg-white dark:bg-gray-900"
+            }`}
+          >
+            <div className="flex justify-between items-start mb-2">
+              <div className="font-semibold">
+                {message.role === "user" ? "You" : "Assistant"}
+              </div>
+            </div>
+
+            <div className="prose dark:prose-invert max-w-none">
+              {message.role === "user" ? (
+                // Plain text for user messages
+                <div className="whitespace-pre-wrap">{message.content}</div>
+              ) : (
+                // Markdown for assistant messages
+                <ReactMarkdown
+                  components={{
+                    code: codeComponent,
+                  }}
+                >
+                  {message.content}
+                </ReactMarkdown>
+              )}
+            </div>
+          </Card>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  },
+  (prevProps, nextProps) => {
+    return (
+      prevProps.message.role === nextProps.message.role &&
+      prevProps.message.content === nextProps.message.content &&
+      prevProps.prevContent === nextProps.prevContent
+    );
+  }
+);
+
+Message.displayName = "Message";
+
+export { Message };
