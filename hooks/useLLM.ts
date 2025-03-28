@@ -12,6 +12,7 @@ interface LLMState {
   isStreaming: boolean;
   streamingContent: string;
   error: string | null;
+  loadingState: string;
 }
 
 const initialState: LLMState = {
@@ -19,21 +20,23 @@ const initialState: LLMState = {
   isStreaming: false,
   streamingContent: "",
   error: null,
+  loadingState: "",
 };
 
 export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
   const engineRef = useRef<webllm.MLCEngine | null>(null);
-  const [state, setState] = useState<LLMState>(initialState);
+  const [llmState, setLLMState] = useState<LLMState>(initialState);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const abortGeneration = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      setState((prevState) => ({
+      setLLMState((prevState) => ({
         ...prevState,
         isModelLoading: false,
         isStreaming: false,
         streamingContent: "Generation aborted.",
+        loadingState: "",
       }));
     }
   }, []);
@@ -57,11 +60,18 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
             },
           ],
         },
+        initProgressCallback: (initProgress) => {
+          console.log(initProgress);
+          setLLMState((prevState) => ({
+            ...prevState,
+            loadingState: initProgress.text,
+          }));
+        },
       });
       console.log("WebLLM model loaded successfully!");
     } catch (error) {
       console.error("Error initializing WebLLM:", error);
-      setState((prevState) => ({
+      setLLMState((prevState) => ({
         ...prevState,
         error: "Failed to initialize WebLLM",
       }));
@@ -73,7 +83,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
     if (error instanceof Error && error.message === "Generation aborted") {
       console.log("Generation was aborted");
     }
-    setState((prevState) => ({ ...prevState, error: "Generation failed." }));
+    setLLMState((prevState) => ({ ...prevState, error: "Generation failed." }));
     //Centralized error reporting or UI update can be done here.
   }, []);
 
@@ -125,11 +135,11 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
           const curDelta = chunk.choices[0]?.delta.content;
           if (curDelta) {
             if (!hasStartedStreaming) {
-              setState((prevState) => ({ ...prevState, isStreaming: true }));
+              setLLMState((prevState) => ({ ...prevState, isStreaming: true }));
               hasStartedStreaming = true;
             }
             curMessage += curDelta;
-            setState((prevState) => ({
+            setLLMState((prevState) => ({
               ...prevState,
               streamingContent: curMessage,
             }));
@@ -166,7 +176,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
       let accumulatedContent = "";
 
       try {
-        setState((prevState) => ({ ...prevState, isStreaming: true }));
+        setLLMState((prevState) => ({ ...prevState, isStreaming: true }));
         while (true) {
           if (abortControllerRef.current?.signal.aborted) {
             throw new Error("Generation aborted");
@@ -177,7 +187,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
 
           const chunk = decoder.decode(value);
           accumulatedContent += chunk;
-          setState((prevState) => ({
+          setLLMState((prevState) => ({
             ...prevState,
             streamingContent: accumulatedContent,
           }));
@@ -197,7 +207,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
 
   const generateResponse = useCallback(
     async (prompt: string, messages: Message[]) => {
-      if (!prompt.trim() || state.isStreaming) return;
+      if (!prompt.trim() || llmState.isStreaming) return;
 
       const userMessage: Message = {
         role: "user",
@@ -207,7 +217,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
       const updatedMessages = [...messages, userMessage];
       onUpdateMessages(updatedMessages);
 
-      setState((prevState) => ({
+      setLLMState((prevState) => ({
         ...prevState,
         isModelLoading: true,
         streamingContent: "",
@@ -227,11 +237,12 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
       } catch (error) {
         console.error("Error:", error); //already handled in generate functions, this might be redundant.
       } finally {
-        setState((prevState) => ({
+        setLLMState((prevState) => ({
           ...prevState,
           isModelLoading: false,
           isStreaming: false,
           streamingContent: "",
+          loadingState: "",
         }));
       }
     },
@@ -240,7 +251,7 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
       generateLocalResponse,
       generateAPIResponse,
       onUpdateMessages,
-      state.isStreaming,
+      llmState.isStreaming,
     ]
   );
 
@@ -253,9 +264,10 @@ export function useLLM({ isLocalLLM, onUpdateMessages }: UseLLMProps) {
   return {
     generateResponse,
     abortGeneration,
-    isModelLoading: state.isModelLoading,
-    isStreaming: state.isStreaming,
-    streamingContent: state.streamingContent,
-    error: state.error,
+    isModelLoading: llmState.isModelLoading,
+    isStreaming: llmState.isStreaming,
+    streamingContent: llmState.streamingContent,
+    error: llmState.error,
+    loadingState: llmState.loadingState,
   };
 }

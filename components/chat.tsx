@@ -27,6 +27,7 @@ export function Chat({ setMessages, messages }: ChatProps) {
     isModelLoading,
     isStreaming,
     streamingContent,
+    loadingState,
   } = useLLM({
     isLocalLLM,
     onUpdateMessages: setMessages,
@@ -74,7 +75,7 @@ export function Chat({ setMessages, messages }: ChatProps) {
             {isLoading && !isStreaming && (
               <div className="flex mb-4">
                 <div className="whitespace-pre-wrap rounded-lg p-4 bg-gray-200 dark:bg-gray-800">
-                  Loading ...
+                  {`Loading...\n${loadingState}`}
                 </div>
               </div>
             )}

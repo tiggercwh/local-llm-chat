@@ -77,7 +77,7 @@ export function HomeChat() {
               onTypeChange={setIsLocalLLM}
             />
             <Button type="submit" disabled={!input.trim()}>
-              Send
+              Review
               <Send className="ml-2 h-4 w-4" />
             </Button>
           </div>
