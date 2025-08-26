@@ -3,6 +3,7 @@
 A modern web application that allows users to interact with various Large Language Models (LLMs) locally in their browser. Built with Next.js, TypeScript, and TailwindCSS, this application provides a seamless chat interface with support for multiple LLM providers and features like code highlighting and markdown rendering.
 
 Live Demo: https://local-llm-chat-ochre.vercel.app/
+
 You may need to enable WebGPU explicitly to run it in your browser (chrome://flags/#enable-unsafe-webgpu)
 
 ## Features
